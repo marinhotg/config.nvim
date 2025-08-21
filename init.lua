@@ -196,6 +196,37 @@ vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<CR>")
 -- Diagnostic keymaps
 vim.keymap.set("n", "<leader>q", vim.diagnostic.setloclist, { desc = "Open diagnostic [Q]uickfix list" })
 
+vim.api.nvim_create_autocmd("FileType", {
+  pattern = "rust",
+  callback = function(args)
+    local show_virtual_text = true
+    vim.keymap.set(
+      "n",
+      "<leader>te",
+      function()
+        show_virtual_text = not show_virtual_text
+        vim.diagnostic.config({ virtual_text = show_virtual_text })
+      end,
+      { buffer = args.buf, desc = "[T]oggle inline [E]rrors (virtual_text)" }
+    )
+
+    local diagnostics_enabled = true
+    vim.keymap.set(
+      "n",
+      "<leader>td",
+      function()
+        diagnostics_enabled = not diagnostics_enabled
+        if diagnostics_enabled then
+          vim.diagnostic.enable(args.buf)
+        else
+          vim.diagnostic.disable(args.buf)
+        end
+      end,
+      { buffer = args.buf, desc = "[T]oggle [d]iagnostics (buffer)" }
+    )
+  end,
+})
+
 -- Sair do modo de inserção com 'jk'
 vim.keymap.set("i", "jk", "<Esc>", { noremap = true, silent = true })
 
@@ -558,11 +589,13 @@ require("lazy").setup({
 						})
 					end
 
-					if client and client.server_capabilities.inlayHintProvider and vim.lsp.inlay_hint then
-						map("<leader>th", function()
-							vim.lsp.inlay_hint.enable(not vim.lsp.inlay_hint.is_enabled({ bufnr = event.buf }))
-						end, "[T]oggle Inlay [H]ints")
-					end
+                    if client and client.server_capabilities.inlayHintProvider and vim.lsp.inlay_hint then
+                        vim.lsp.inlay_hint.enable(true, { bufnr = event.buf })
+                        map("<leader>th", function()
+                            local enabled = vim.lsp.inlay_hint.is_enabled({ bufnr = event.buf })
+                            vim.lsp.inlay_hint.enable(not enabled, { bufnr = event.buf })
+                        end, "[T]oggle Inlay [H]ints")
+                    end
 				end,
 			})
 
