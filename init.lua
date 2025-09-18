@@ -598,11 +598,23 @@ require("lazy").setup({
 				-- You can put your default mappings / updates / etc. in here
 				--  All the info you're looking for is in `:help telescope.setup()`
 				--
-				-- defaults = {
-				--   mappings = {
-				--     i = { ['<c-enter>'] = 'to_fuzzy_refine' },
-				--   },
-				-- },
+				defaults = {
+					mappings = {
+						i = {
+							['<c-enter>'] = 'to_fuzzy_refine',
+							['<c-r>'] = function()
+								return vim.fn.getreg('+')
+							end,
+						},
+						n = {
+							['p'] = function(prompt_bufnr)
+								local picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
+								local register_content = vim.fn.getreg('+'):gsub('\n', ' ')
+								picker:set_prompt(picker:_get_prompt() .. register_content)
+							end,
+						},
+					},
+				},
 				-- pickers = {}
 				extensions = {
 					["ui-select"] = {
