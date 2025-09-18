@@ -121,7 +121,7 @@ vim.api.nvim_create_user_command("DisableCargoCheck", function()
 	for _, client in ipairs(clients) do
 		pcall(function()
 			-- Múltiplas tentativas de desativação
-			client.notify("workspace/didChangeConfiguration", {
+			vim.lsp.buf_request(0, "workspace/didChangeConfiguration", {
 				settings = {
 					["rust-analyzer"] = {
 						checkOnSave = { enable = false },
@@ -232,7 +232,7 @@ vim.api.nvim_create_autocmd("LspAttach", {
 			-- Força a desativação do cargo check
 			vim.defer_fn(function()
 				pcall(function()
-					client.notify("workspace/didChangeConfiguration", {
+					vim.lsp.buf_request(0, "workspace/didChangeConfiguration", {
 						settings = {
 							["rust-analyzer"] = {
 								checkOnSave = { enable = false },
@@ -265,6 +265,9 @@ vim.o.mouse = "a"
 
 -- Don't show the mode, since it's already in the status line
 vim.o.showmode = false
+
+-- Don't show command in bottom line
+vim.o.showcmd = false
 
 -- Sync clipboard between OS and Neovim.
 --  Schedule the setting after `UiEnter` because it can increase startup-time.
@@ -439,6 +442,15 @@ rtp:prepend(lazypath)
 require("lazy").setup({
 	-- NOTE: Plugins can be added with a link (or for a github repo: 'owner/repo' link).
 	"NMAC427/guess-indent.nvim", -- Detect tabstop and shiftwidth automatically
+
+	{ -- Hackable markdown previewer
+		"OXY2DEV/markview.nvim",
+		lazy = false,
+		dependencies = {
+			"nvim-treesitter/nvim-treesitter",
+			"nvim-tree/nvim-web-devicons"
+		},
+	},
 
 	-- NOTE: Plugins can also be added by using a table,
 	-- with the first argument being the link and the following
@@ -701,7 +713,16 @@ require("lazy").setup({
 						vim.keymap.set(mode, keys, func, { buffer = event.buf, desc = "LSP: " .. desc })
 					end
 
-					map("grn", vim.lsp.buf.rename, "[R]e[n]ame")
+					map("grn", function()
+						vim.ui.input({
+							prompt = "New name: ",
+							default = vim.fn.expand("<cword>")
+						}, function(new_name)
+							if new_name then
+								vim.lsp.buf.rename(new_name)
+							end
+						end)
+					end, "[R]e[n]ame")
 					map("gra", vim.lsp.buf.code_action, "[G]oto Code [A]ction", { "n", "x" })
 					map("grr", require("telescope.builtin").lsp_references, "[G]oto [R]eferences")
 					map("gri", require("telescope.builtin").lsp_implementations, "[G]oto [I]mplementation")
