@@ -166,14 +166,17 @@ vim.api.nvim_create_user_command("RestartRustAnalyzer", function()
 	
 	-- Aguarda um pouco e reinicia
 	vim.defer_fn(function()
-		require("lspconfig").rust_analyzer.setup({
+		vim.lsp.config.rust_analyzer = {
+			cmd = { "rust-analyzer" },
+			filetypes = { "rust" },
+			root_markers = { "Cargo.toml", "rust-project.json" },
 			settings = {
 				["rust-analyzer"] = {
 					checkOnSave = { enable = false },
 					cargo = { checkOnSave = false },
 				},
 			},
-		})
+		}
 		print("Rust-analyzer reiniciado com cargo check desabilitado")
 	end, 1000)
 end, { desc = "Reinicia o rust-analyzer com configuração limpa" })
@@ -797,7 +800,7 @@ require("lazy").setup({
 			for server_name, server_opts in pairs(servers) do
 				server_opts.capabilities =
 					vim.tbl_deep_extend("force", {}, capabilities, server_opts.capabilities or {})
-				require("lspconfig")[server_name].setup(server_opts)
+				vim.lsp.config[server_name] = server_opts
 			end
 		end,
 	},
