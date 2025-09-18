@@ -95,20 +95,153 @@ vim.keymap.set({ "n", "v" }, "<Space>", "<Nop>", { silent = true })
 
 -- Comando utilitário para recuperar o Leader sem reiniciar
 vim.api.nvim_create_user_command("FixLeader", function()
-  -- Reafirma leader/localleader
-  vim.g.mapleader = " "
-  vim.g.maplocalleader = " "
-  -- Garante que <Space> não esteja mapeado por engano
-  pcall(vim.api.nvim_del_keymap, "n", "<Space>")
-  pcall(vim.api.nvim_del_keymap, "v", "<Space>")
-  vim.keymap.set({ "n", "v" }, "<Space>", "<Nop>", { silent = true })
-  -- Acomoda digitação mais lenta do leader
-  vim.o.timeout = true
-  if vim.o.timeoutlen < 500 then
-    vim.o.timeoutlen = 700
-  end
-  vim.notify("Leader reparado: mapleader=' '.. timeoutlen=" .. vim.o.timeoutlen, vim.log.levels.INFO)
+	-- Reafirma leader/localleader
+	vim.g.mapleader = " "
+	vim.g.maplocalleader = " "
+	-- Garante que <Space> não esteja mapeado por engano
+	pcall(vim.api.nvim_del_keymap, "n", "<Space>")
+	pcall(vim.api.nvim_del_keymap, "v", "<Space>")
+	vim.keymap.set({ "n", "v" }, "<Space>", "<Nop>", { silent = true })
+	-- Acomoda digitação mais lenta do leader
+	vim.o.timeout = true
+	if vim.o.timeoutlen < 500 then
+		vim.o.timeoutlen = 700
+	end
+	vim.notify("Leader reparado: mapleader=' '.. timeoutlen=" .. vim.o.timeoutlen, vim.log.levels.INFO)
 end, { desc = "Repara Leader e timeoutlen em tempo de execução" })
+
+-- Comando para forçar a desativação do cargo check em todos os clientes rust-analyzer
+vim.api.nvim_create_user_command("DisableCargoCheck", function()
+	local clients = vim.lsp.get_clients({ name = "rust_analyzer" })
+	if #clients == 0 then
+		print("Nenhum cliente rust-analyzer ativo encontrado")
+		return
+	end
+	
+	for _, client in ipairs(clients) do
+		pcall(function()
+			-- Múltiplas tentativas de desativação
+			client.notify("workspace/didChangeConfiguration", {
+				settings = {
+					["rust-analyzer"] = {
+						checkOnSave = { enable = false },
+						cargo = { checkOnSave = false },
+					},
+				},
+			})
+			
+			-- Força a desativação via comando LSP
+			client.request("workspace/executeCommand", {
+				command = "rust-analyzer.reload",
+				arguments = {},
+			}, function() end)
+		end)
+	end
+	print("Cargo check FORÇADAMENTE desabilitado em " .. #clients .. " cliente(s) rust-analyzer")
+end, { desc = "Força a desativação do cargo check em todos os clientes rust-analyzer" })
+
+-- Comando para parar completamente o rust-analyzer
+vim.api.nvim_create_user_command("StopRustAnalyzer", function()
+	local clients = vim.lsp.get_clients({ name = "rust_analyzer" })
+	if #clients == 0 then
+		print("Nenhum cliente rust-analyzer ativo encontrado")
+		return
+	end
+	
+	for _, client in ipairs(clients) do
+		vim.lsp.stop_client(client.id)
+	end
+	print("Rust-analyzer parado em " .. #clients .. " cliente(s)")
+end, { desc = "Para completamente o rust-analyzer" })
+
+-- Comando para reiniciar o rust-analyzer com configuração limpa
+vim.api.nvim_create_user_command("RestartRustAnalyzer", function()
+	local clients = vim.lsp.get_clients({ name = "rust_analyzer" })
+	if #clients > 0 then
+		for _, client in ipairs(clients) do
+			vim.lsp.stop_client(client.id)
+		end
+		print("Rust-analyzer parado, reiniciando...")
+	end
+	
+	-- Aguarda um pouco e reinicia
+	vim.defer_fn(function()
+		require("lspconfig").rust_analyzer.setup({
+			settings = {
+				["rust-analyzer"] = {
+					checkOnSave = { enable = false },
+					cargo = { checkOnSave = false },
+				},
+			},
+		})
+		print("Rust-analyzer reiniciado com cargo check desabilitado")
+	end, 1000)
+end, { desc = "Reinicia o rust-analyzer com configuração limpa" })
+
+-- Comando para criar arquivo rust-analyzer.toml no projeto atual
+vim.api.nvim_create_user_command("CreateRustAnalyzerConfig", function()
+	local cwd = vim.fn.getcwd()
+	local config_file = cwd .. "/rust-analyzer.toml"
+	
+	-- Verifica se já existe
+	if vim.fn.filereadable(config_file) == 1 then
+		print("Arquivo rust-analyzer.toml já existe em: " .. config_file)
+		return
+	end
+	
+	-- Cria o arquivo de configuração
+	local config_content = [[[checkOnSave]
+enable = false
+
+[cargo]
+checkOnSave = false
+]]
+	
+	vim.fn.writefile(vim.split(config_content, "\n"), config_file)
+	print("✅ Arquivo rust-analyzer.toml criado em: " .. config_file)
+	print("🛡️ Cargo check desabilitado para este projeto")
+end, { desc = "Cria arquivo rust-analyzer.toml para desabilitar cargo check no projeto atual" })
+
+-- Comando para verificar o status do cargo check
+vim.api.nvim_create_user_command("CargoCheckStatus", function()
+	local clients = vim.lsp.get_clients({ name = "rust_analyzer" })
+	if #clients == 0 then
+		print("Nenhum cliente rust-analyzer ativo encontrado")
+		return
+	end
+	
+	for i, client in ipairs(clients) do
+		local config = client.config.settings["rust-analyzer"]
+		if config and config.checkOnSave then
+			print("Cliente " .. i .. ": Cargo check " .. (config.checkOnSave.enable and "HABILITADO" or "DESABILITADO"))
+		else
+			print("Cliente " .. i .. ": Cargo check DESABILITADO (configuração não encontrada)")
+		end
+	end
+end, { desc = "Verifica o status do cargo check em todos os clientes rust-analyzer" })
+
+-- Hook simples para desabilitar cargo check quando rust-analyzer é anexado
+vim.api.nvim_create_autocmd("LspAttach", {
+	group = vim.api.nvim_create_augroup("DisableCargoCheck", { clear = true }),
+	callback = function(event)
+		local client = vim.lsp.get_client_by_id(event.data.client_id)
+		if client and client.name == "rust_analyzer" then
+			-- Força a desativação do cargo check
+			vim.defer_fn(function()
+				pcall(function()
+					client.notify("workspace/didChangeConfiguration", {
+						settings = {
+							["rust-analyzer"] = {
+								checkOnSave = { enable = false },
+							},
+						},
+					})
+				end)
+			end, 500)
+		end
+	end,
+})
+
 
 -- Set to true if you have a Nerd Font installed and selected in the terminal
 vim.g.have_nerd_font = true
@@ -209,7 +342,6 @@ vim.api.nvim_create_autocmd("FileType", {
       end,
       { buffer = args.buf, desc = "[T]oggle inline [E]rrors (virtual_text)" }
     )
-
     local diagnostics_enabled = true
     vim.keymap.set(
       "n",
@@ -238,7 +370,7 @@ vim.keymap.set("i", "jk", "<Esc>", { noremap = true, silent = true })
 -- or just use <C-\><C-n> to exit terminal mode
 vim.keymap.set("t", "<Esc><Esc>", "<C-\\><C-n>", { desc = "Exit terminal mode" })
 -- Alternativa ao Esc no terminal: Ctrl+g para sair do modo inserção
-vim.keymap.set("t", "<C-g>", "<C-\\><C-n>", { desc = "Exit terminal mode (Ctrl+g)" })
+vim.keymap.set("t", "<C-h>", "<C-\\><C-n>", { desc = "Exit terminal mode (Ctrl+h)" })
 
 -- TIP: Disable arrow keys in normal mode
 -- vim.keymap.set('n', '<left>', '<cmd>echo "Use h to move!!"<CR>')
@@ -590,7 +722,7 @@ require("lazy").setup({
 					end
 
                     if client and client.server_capabilities.inlayHintProvider and vim.lsp.inlay_hint then
-                        vim.lsp.inlay_hint.enable(true, { bufnr = event.buf })
+                        vim.lsp.inlay_hint.enable(false, { bufnr = event.buf })
                         map("<leader>th", function()
                             local enabled = vim.lsp.inlay_hint.is_enabled({ bufnr = event.buf })
                             vim.lsp.inlay_hint.enable(not enabled, { bufnr = event.buf })
@@ -639,33 +771,24 @@ require("lazy").setup({
 				},
 			}
 
-			-- Estado global do rust-analyzer
-			_G.rust_analyzer_enabled = false
-
-			-- Função para toggle do rust-analyzer
-			local function toggle_rust_analyzer()
-				_G.rust_analyzer_enabled = not _G.rust_analyzer_enabled
-				
-				if _G.rust_analyzer_enabled then
-					-- Ativar rust-analyzer
-					require('lspconfig').rust_analyzer.setup({
-						capabilities = capabilities,
-					})
-					print("Rust-analyzer ativado")
-				else
-					-- Desativar rust-analyzer
-					vim.lsp.stop_client(vim.lsp.get_active_clients({ name = 'rust_analyzer' }))
-					print("Rust-analyzer desativado")
-				end
-			end
-
-			-- Keybind para toggle do rust-analyzer
-			vim.keymap.set('n', '<leader>tr', toggle_rust_analyzer, { desc = '[T]oggle [R]ust analyzer' })
-
-			-- Inicialmente não inclui rust-analyzer na instalação automática
-			if _G.rust_analyzer_enabled then
-				servers.rust_analyzer = {}
-			end
+			-- Configuração simples do rust-analyzer com cargo check desabilitado
+			servers.rust_analyzer = {
+				settings = {
+					["rust-analyzer"] = {
+						checkOnSave = {
+							enable = false, -- Desabilita cargo check automático
+						},
+						cargo = {
+							buildScripts = {
+								enable = true,
+							},
+						},
+						procMacro = {
+							enable = true,
+						},
+					},
+				},
+			}
 
 			require("mason-lspconfig").setup({
 				ensure_installed = vim.tbl_keys(servers),

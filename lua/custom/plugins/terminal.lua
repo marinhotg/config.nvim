@@ -53,9 +53,11 @@ return {
       local map = vim.keymap.set
       map("n", "<leader>tt", "<cmd>ToggleTerm direction=float<CR>", { desc = "Toggle [T]erminal (float)" })
       map("n", "<leader>tv", function()
+        close_neo_tree_if_open()
         term1:toggle(60)
       end, { desc = "Toggle Terminal [V]ertical (T1)" })
       map({ "n", "t" }, "<leader>t1", function()
+        close_neo_tree_if_open()
         term1:toggle(60)
       end, { desc = "Toggle Terminal 1 (vertical)" })
       map({ "n", "t" }, "<leader>t2", function()
