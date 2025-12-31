@@ -335,6 +335,22 @@ vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<CR>")
 -- Diagnostic keymaps
 vim.keymap.set("n", "<leader>q", vim.diagnostic.setloclist, { desc = "Open diagnostic [Q]uickfix list" })
 
+local function diagnostic_enable(bufnr)
+	if vim.diagnostic and vim.diagnostic.enable then
+		vim.diagnostic.enable(bufnr)
+	elseif vim.lsp.diagnostic and vim.lsp.diagnostic.enable then
+		vim.lsp.diagnostic.enable(bufnr)
+	end
+end
+
+local function diagnostic_disable(bufnr)
+	if vim.diagnostic and vim.diagnostic.disable then
+		vim.diagnostic.disable(bufnr)
+	elseif vim.lsp.diagnostic and vim.lsp.diagnostic.disable then
+		vim.lsp.diagnostic.disable(bufnr)
+	end
+end
+
 vim.api.nvim_create_autocmd("FileType", {
   pattern = "rust",
   callback = function(args)
@@ -355,9 +371,9 @@ vim.api.nvim_create_autocmd("FileType", {
       function()
         diagnostics_enabled = not diagnostics_enabled
         if diagnostics_enabled then
-          vim.diagnostic.enable(args.buf)
+          diagnostic_enable(args.buf)
         else
-          vim.diagnostic.disable(args.buf)
+          diagnostic_disable(args.buf)
         end
       end,
       { buffer = args.buf, desc = "[T]oggle [d]iagnostics (buffer)" }
@@ -413,6 +429,162 @@ vim.api.nvim_create_autocmd("TextYankPost", {
 	end,
 })
 
+vim.g.rust_unresolved_reference_semantic_tokens_enabled = false
+
+local rust_unresolved_reference_hl_groups = {
+	"@lsp.type.unresolvedReference",
+	"@lsp.type.unresolvedReference.rust",
+}
+local rust_unresolved_reference_hl_backup = {}
+
+local function hl_has_underline(hl)
+	return hl
+		and (
+			hl.underline
+			or hl.undercurl
+			or hl.underdouble
+			or hl.underdotted
+			or hl.underdashed
+		)
+end
+
+local function update_rust_unresolved_reference_hl_backup()
+	for _, group in ipairs(rust_unresolved_reference_hl_groups) do
+		local ok, hl = pcall(vim.api.nvim_get_hl, 0, { name = group, link = false })
+		if ok and hl and hl_has_underline(hl) then
+			rust_unresolved_reference_hl_backup[group] = hl
+		end
+	end
+end
+
+local function restore_rust_unresolved_reference_hl()
+	for _, group in ipairs(rust_unresolved_reference_hl_groups) do
+		local hl = rust_unresolved_reference_hl_backup[group]
+		if hl then
+			vim.api.nvim_set_hl(0, group, hl)
+		else
+			vim.api.nvim_set_hl(0, group, { link = "DiagnosticUnderlineError" })
+		end
+	end
+end
+
+local function disable_rust_unresolved_reference_hl()
+	for _, group in ipairs(rust_unresolved_reference_hl_groups) do
+		vim.api.nvim_set_hl(0, group, {
+			underline = false,
+			undercurl = false,
+			underdouble = false,
+			underdotted = false,
+			underdashed = false,
+		})
+	end
+end
+
+local function apply_rust_unresolved_reference_hl_state()
+	if vim.g.rust_unresolved_reference_semantic_tokens_enabled then
+		restore_rust_unresolved_reference_hl()
+	else
+		disable_rust_unresolved_reference_hl()
+	end
+end
+
+local function set_rust_unresolved_reference_semantic_tokens_enabled(enabled)
+	vim.g.rust_unresolved_reference_semantic_tokens_enabled = enabled
+	apply_rust_unresolved_reference_hl_state()
+end
+
+update_rust_unresolved_reference_hl_backup()
+apply_rust_unresolved_reference_hl_state()
+
+vim.api.nvim_create_autocmd("ColorScheme", {
+	desc = "Keep Rust unresolvedReference highlight in sync",
+	group = vim.api.nvim_create_augroup("kickstart-lsp-unresolved-reference", { clear = true }),
+	callback = function()
+		update_rust_unresolved_reference_hl_backup()
+		apply_rust_unresolved_reference_hl_state()
+	end,
+})
+
+vim.api.nvim_create_autocmd("LspTokenUpdate", {
+	desc = "Cache unresolvedReference highlight when tokens arrive",
+	group = vim.api.nvim_create_augroup("kickstart-lsp-unresolved-reference-tokens", { clear = true }),
+	callback = function(args)
+		local token = args.data and args.data.token
+		if not (token and token.type == "unresolvedReference") then
+			return
+		end
+
+		local client = vim.lsp.get_client_by_id(args.data.client_id)
+		if not (client and client.name == "rust_analyzer") then
+			return
+		end
+
+		local before = rust_unresolved_reference_hl_backup["@lsp.type.unresolvedReference"]
+		update_rust_unresolved_reference_hl_backup()
+		if not before and rust_unresolved_reference_hl_backup["@lsp.type.unresolvedReference"] then
+			apply_rust_unresolved_reference_hl_state()
+		end
+	end,
+})
+
+vim.g.which_key_popup_enabled = false
+
+vim.keymap.set("n", "<leader>tu", function()
+	set_rust_unresolved_reference_semantic_tokens_enabled(
+		not vim.g.rust_unresolved_reference_semantic_tokens_enabled
+	)
+	local status = vim.g.rust_unresolved_reference_semantic_tokens_enabled and "ENABLED" or "DISABLED"
+	vim.notify("Rust unresolvedReference semantic tokens: " .. status, vim.log.levels.INFO)
+end, { desc = "[T]oggle [U]nresolved reference (semantic tokens)" })
+
+local function setup_which_key_popup_toggle()
+	if vim.g._which_key_popup_toggle_setup then
+		return true
+	end
+
+	local ok_view, view = pcall(require, "which-key.view")
+	if not ok_view then
+		return false
+	end
+
+	vim.g._which_key_popup_toggle_setup = true
+	local original_show = view.show
+	view.show = function(...)
+		if vim.g.which_key_popup_enabled then
+			return original_show(...)
+		end
+	end
+
+	return true
+end
+
+local function toggle_which_key()
+	if not setup_which_key_popup_toggle() then
+		vim.notify("which-key not loaded", vim.log.levels.WARN)
+		return
+	end
+
+	vim.g.which_key_popup_enabled = not vim.g.which_key_popup_enabled
+	if not vim.g.which_key_popup_enabled then
+		local ok_view, view = pcall(require, "which-key.view")
+		if ok_view then
+			view.hide()
+		end
+	end
+
+	local status = vim.g.which_key_popup_enabled and "enabled" or "disabled"
+	vim.notify("Which-key " .. status, vim.log.levels.INFO)
+end
+
+vim.keymap.set("n", "<leader>tw", toggle_which_key, { desc = "[T]oggle [W]hich-Key" })
+
+vim.api.nvim_create_autocmd("User", {
+	pattern = "VeryLazy",
+	callback = function()
+		setup_which_key_popup_toggle()
+	end,
+})
+
 -- [[ Install `lazy.nvim` plugin manager ]]
 --    See `:help lazy.nvim.txt` or https://github.com/folke/lazy.nvim for more info
 local lazypath = vim.fn.stdpath("data") .. "/lazy/lazy.nvim"
@@ -450,6 +622,29 @@ require("lazy").setup({
 			"nvim-treesitter/nvim-treesitter",
 			"nvim-tree/nvim-web-devicons"
 		},
+		opts = {
+			preview = {
+				filetypes = { "markdown" },
+			},
+			markdown_inline = {
+				checkboxes = {
+					enable = true,
+					checked = {
+						text = "☑",
+						hl = "MarkviewCheckboxChecked",
+						scope_hl = "MarkviewCheckboxChecked",
+					},
+					unchecked = {
+						text = "☐",
+						hl = "MarkviewCheckboxUnchecked",
+						scope_hl = "MarkviewCheckboxUnchecked",
+					},
+				},
+			},
+		},
+		config = function(_, opts)
+			require("markview").setup(opts)
+		end,
 	},
 
 	-- NOTE: Plugins can also be added by using a table,
@@ -713,6 +908,8 @@ require("lazy").setup({
 						vim.keymap.set(mode, keys, func, { buffer = event.buf, desc = "LSP: " .. desc })
 					end
 
+					local client = vim.lsp.get_client_by_id(event.data.client_id)
+
 					map("grn", function()
 						vim.ui.input({
 							prompt = "New name: ",
@@ -732,7 +929,6 @@ require("lazy").setup({
 					map("gW", require("telescope.builtin").lsp_dynamic_workspace_symbols, "Open Workspace Symbols")
 					map("grt", require("telescope.builtin").lsp_type_definitions, "[G]oto [T]ype Definition")
 
-					local client = vim.lsp.get_client_by_id(event.data.client_id)
 					if client and client.server_capabilities.documentHighlightProvider then
 						local highlight_augroup =
 							vim.api.nvim_create_augroup("kickstart-lsp-highlight", { clear = false })
@@ -986,17 +1182,79 @@ require("lazy").setup({
 		"folke/tokyonight.nvim",
 		priority = 1000, -- Make sure to load this before all the other start plugins.
 		config = function()
+			local obsidian = {
+				bg = "#1e1e1e",
+				bg_dark = "#171717",
+				bg_highlight = "#2a2a2a",
+				bg_popup = "#242424",
+				bg_statusline = "#1c1c1c",
+				fg = "#d7d7d7",
+				fg_dark = "#b5b5b5",
+				fg_gutter = "#4a4a4a",
+				border = "#3a3a3a",
+				comment = "#808080",
+				accent = "#7f6df2",
+				blue = "#5ea1ff",
+				cyan = "#4fd6be",
+				green = "#00e676",
+				yellow = "#fdd835",
+				orange = "#ff9800",
+				red = "#f44336",
+				magenta = "#9c27b0",
+				purple = "#7f6df2",
+				selection = "#333333",
+				search = "#4a3ea3",
+			}
+
 			---@diagnostic disable-next-line: missing-fields
 			require("tokyonight").setup({
+				style = "night",
+				transparent = false,
 				styles = {
 					comments = { italic = false }, -- Disable italics in comments
 				},
+				on_colors = function(colors)
+					colors.bg = obsidian.bg
+					colors.bg_dark = obsidian.bg_dark
+					colors.bg_highlight = obsidian.bg_highlight
+					colors.bg_popup = obsidian.bg_popup
+					colors.bg_statusline = obsidian.bg_statusline
+					colors.fg = obsidian.fg
+					colors.fg_dark = obsidian.fg_dark
+					colors.fg_gutter = obsidian.fg_gutter
+					colors.border = obsidian.border
+					colors.comment = obsidian.comment
+					colors.blue = obsidian.blue
+					colors.cyan = obsidian.cyan
+					colors.green = obsidian.green
+					colors.yellow = obsidian.yellow
+					colors.orange = obsidian.orange
+					colors.red = obsidian.red
+					colors.magenta = obsidian.magenta
+					colors.purple = obsidian.purple
+				end,
+				on_highlights = function(hl, c)
+					hl.CursorLine = { bg = obsidian.bg_highlight }
+					hl.Visual = { bg = obsidian.selection }
+					hl.Search = { bg = obsidian.search, fg = obsidian.bg }
+					hl.IncSearch = { bg = obsidian.search, fg = obsidian.bg }
+					hl.LineNr = { fg = obsidian.fg_gutter }
+					hl.CursorLineNr = { fg = obsidian.accent, bold = true }
+					hl.Pmenu = { bg = obsidian.bg_popup, fg = obsidian.fg }
+					hl.PmenuSel = { bg = obsidian.bg_highlight }
+					hl.StatusLine = { bg = obsidian.bg_statusline, fg = obsidian.fg }
+					hl.StatusLineNC = { bg = obsidian.bg_dark, fg = obsidian.fg_dark }
+					hl.VertSplit = { fg = obsidian.border }
+					hl.WinSeparator = { fg = obsidian.border }
+					hl.FloatBorder = { fg = obsidian.border, bg = obsidian.bg_popup }
+					hl.NormalFloat = { bg = obsidian.bg_popup }
+				end,
 			})
 
 			-- Load the colorscheme here.
 			-- Like many other themes, this one has different styles, and you could load
 			-- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
-			vim.cmd.colorscheme("tokyonight-night")
+			vim.cmd.colorscheme("tokyonight")
 		end,
 	},
 
