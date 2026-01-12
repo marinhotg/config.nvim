@@ -1,0 +1,24 @@
+#!/bin/bash
+# Creates a git worktree in ../<repo>-wt/<name>
+# Usage: git-wt-add <worktree-name> <branch-name>
+# If worktree-name is empty, uses branch-name
+
+WORKTREE_NAME="$1"
+BRANCH_NAME="$2"
+
+if [ -z "$BRANCH_NAME" ]; then
+    echo "Usage: git-wt-add <worktree-name> <branch-name>"
+    exit 1
+fi
+
+# Use branch name as worktree name if not provided
+if [ -z "$WORKTREE_NAME" ]; then
+    # Remove slashes from branch name for directory
+    WORKTREE_NAME=$(echo "$BRANCH_NAME" | tr '/' '-')
+fi
+
+REPO=$(basename $(git rev-parse --show-toplevel))
+WORKTREE_DIR="../${REPO}-wt"
+
+mkdir -p "$WORKTREE_DIR"
+git worktree add "${WORKTREE_DIR}/${WORKTREE_NAME}" "$BRANCH_NAME"

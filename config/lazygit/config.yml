@@ -1,0 +1,54 @@
+git:
+  overrideGpg: true
+
+customCommands:
+  - key: "W"
+    context: "localBranches"
+    prompts:
+      - type: "input"
+        title: "Worktree name (empty = branch name):"
+        key: "WorktreeName"
+    command: "/home/tiago/.local/bin/git-wt-add '{{.Form.WorktreeName}}' '{{.SelectedLocalBranch.Name}}'"
+    description: "Create worktree from selected branch"
+    loadingText: "Creating worktree..."
+
+  - key: "w"
+    context: "localBranches"
+    prompts:
+      - type: "input"
+        title: "Worktree name (empty = branch name):"
+        key: "WorktreeName"
+    command: "/home/tiago/.local/bin/git-wt-add '{{.Form.WorktreeName}}' '{{.SelectedLocalBranch.Name}}'"
+    description: "Create worktree from selected branch"
+    loadingText: "Creating worktree..."
+    override: true
+
+  - key: "W"
+    context: "remoteBranches"
+    prompts:
+      - type: "input"
+        title: "Worktree name (empty = branch name):"
+        key: "WorktreeName"
+    command: "/home/tiago/.local/bin/git-wt-add '{{.Form.WorktreeName}}' '{{.SelectedRemoteBranch.BranchName}}'"
+    description: "Create worktree from remote branch"
+    loadingText: "Creating worktree..."
+
+  - key: "w"
+    context: "remoteBranches"
+    prompts:
+      - type: "input"
+        title: "Worktree name (empty = branch name):"
+        key: "WorktreeName"
+    command: "/home/tiago/.local/bin/git-wt-add '{{.Form.WorktreeName}}' '{{.SelectedRemoteBranch.BranchName}}'"
+    description: "Create worktree from remote branch"
+    loadingText: "Creating worktree..."
+    override: true
+
+  - key: "D"
+    context: "localBranches"
+    prompts:
+      - type: "confirm"
+        title: "Delete worktree and branch '{{.SelectedLocalBranch.Name}}'?"
+    command: "WT_PATH=$(git worktree list --porcelain | grep -B2 'branch refs/heads/{{.SelectedLocalBranch.Name}}$' | head -1 | sed 's/worktree //'); [ -n \"$WT_PATH\" ] && git worktree remove \"$WT_PATH\"; git branch -D '{{.SelectedLocalBranch.Name}}'"
+    description: "Delete worktree and branch"
+    loadingText: "Deleting..."
