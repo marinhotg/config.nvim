@@ -393,6 +393,17 @@ vim.keymap.set("i", "jk", "<Esc>", { noremap = true, silent = true })
 vim.keymap.set("t", "<Esc><Esc>", "<C-\\><C-n>", { desc = "Exit terminal mode" })
 -- Alternativa ao Esc no terminal: Ctrl+g para sair do modo inserção
 vim.keymap.set("t", "<C-h>", "<C-\\><C-n>", { desc = "Exit terminal mode (Ctrl+h)" })
+vim.keymap.set("t", "<C-j>", "<C-\\><C-n>", { desc = "Exit terminal mode (Ctrl+j)" })
+vim.keymap.set("t", "<C-k>", "<C-\\><C-n>", { desc = "Exit terminal mode (Ctrl+k)" })
+vim.keymap.set("t", "<C-l>", "<C-\\><C-n>", { desc = "Exit terminal mode (Ctrl+l)" })
+
+-- Sobrescreve :vsp e :sp em buffers de terminal para abrir nova instância
+vim.cmd([[
+	cnoreabbrev <expr> vsp &buftype == 'terminal' ? 'vsplit \| terminal' : 'vsp'
+	cnoreabbrev <expr> sp &buftype == 'terminal' ? 'split \| terminal' : 'sp'
+	cnoreabbrev <expr> vsplit &buftype == 'terminal' ? 'vsplit \| terminal' : 'vsplit'
+	cnoreabbrev <expr> split &buftype == 'terminal' ? 'split \| terminal' : 'split'
+]])
 
 -- TIP: Disable arrow keys in normal mode
 -- vim.keymap.set('n', '<left>', '<cmd>echo "Use h to move!!"<CR>')
@@ -1067,6 +1078,7 @@ require("lazy").setup({
 			end,
 			formatters_by_ft = {
 				lua = { "stylua" },
+				json = { "jq" },
 				-- Conform can also run multiple formatters sequentially
 				-- python = { "isort", "black" },
 				--
