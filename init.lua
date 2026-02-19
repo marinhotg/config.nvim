@@ -633,28 +633,113 @@ require("lazy").setup({
 			"nvim-treesitter/nvim-treesitter",
 			"nvim-tree/nvim-web-devicons"
 		},
-		opts = {
-			preview = {
-				filetypes = { "markdown" },
-			},
-			markdown_inline = {
-				checkboxes = {
-					enable = true,
-					checked = {
-						text = "☑",
-						hl = "MarkviewCheckboxChecked",
-						scope_hl = "MarkviewCheckboxChecked",
+		config = function()
+			vim.api.nvim_set_hl(0, "MarkviewHeading1", { fg = "#f38ba8", bold = true, bg = "NONE" })
+			vim.api.nvim_set_hl(0, "MarkviewHeading2", { fg = "#fab387", bold = true, bg = "NONE" })
+			vim.api.nvim_set_hl(0, "MarkviewHeading3", { fg = "#a6e3a1", bold = true, bg = "NONE" })
+			vim.api.nvim_set_hl(0, "MarkviewHeading4", { fg = "#89b4fa", bg = "NONE" })
+			vim.api.nvim_set_hl(0, "MarkviewHeading5", { fg = "#cba6f7", bg = "NONE" })
+			vim.api.nvim_set_hl(0, "MarkviewHeading6", { fg = "#94e2d5", bg = "NONE" })
+			vim.api.nvim_set_hl(0, "MarkviewInlineCode", { fg = "#a6e3a1", bg = "NONE" })
+			vim.api.nvim_set_hl(0, "@markup.raw.markdown_inline", { fg = "#a6e3a1", bg = "NONE" })
+			vim.api.nvim_set_hl(0, "MarkviewCodeBorder", { fg = "#45475a", bg = "NONE" })
+			vim.api.nvim_set_hl(0, "MarkviewCodeLang", { fg = "#585b70", bg = "NONE" })
+
+			require("markview").setup({
+				preview = {
+					filetypes = { "markdown" },
+				},
+				markdown = {
+					headings = {
+						enable = true,
+						shift_width = 0,
+						heading_1 = {
+							style = "icon",
+							icon = "",
+							hl = "MarkviewHeading1",
+						},
+						heading_2 = {
+							style = "icon",
+							icon = "",
+							hl = "MarkviewHeading2",
+						},
+						heading_3 = {
+							style = "icon",
+							icon = "",
+							hl = "MarkviewHeading3",
+						},
+						heading_4 = {
+							style = "icon",
+							icon = "",
+							hl = "MarkviewHeading4",
+						},
+						heading_5 = {
+							style = "icon",
+							icon = "",
+							hl = "MarkviewHeading5",
+						},
+						heading_6 = {
+							style = "icon",
+							icon = "",
+							hl = "MarkviewHeading6",
+						},
 					},
-					unchecked = {
-						text = "☐",
-						hl = "MarkviewCheckboxUnchecked",
-						scope_hl = "MarkviewCheckboxUnchecked",
+					code_blocks = {
+						enable = true,
+						style = "block",
+						border_hl = "MarkviewCodeBorder",
+						info_hl = "MarkviewCodeLang",
+						label_direction = "right",
+						min_width = 60,
+						pad_amount = 1,
+						pad_char = " ",
+						sign = false,
+						default = {
+							block_hl = "NONE",
+							pad_hl = "NONE",
+						},
+					},
+					list_items = {
+						enable = true,
+						marker_minus = {
+							add_padding = true,
+							conceal_on_checkboxes = true,
+							text = "·",
+							hl = "MarkviewListItemMinus",
+						},
+						marker_plus = {
+							add_padding = true,
+							conceal_on_checkboxes = true,
+							text = "·",
+							hl = "MarkviewListItemPlus",
+						},
+						marker_star = {
+							add_padding = true,
+							conceal_on_checkboxes = true,
+							text = "·",
+							hl = "MarkviewListItemStar",
+						},
 					},
 				},
-			},
-		},
-		config = function(_, opts)
-			require("markview").setup(opts)
+				markdown_inline = {
+					inline_codes = {
+						enable = false,
+					},
+					checkboxes = {
+						enable = true,
+						checked = {
+							text = "☑",
+							hl = "MarkviewCheckboxChecked",
+							scope_hl = "MarkviewCheckboxChecked",
+						},
+						unchecked = {
+							text = "☐",
+							hl = "MarkviewCheckboxUnchecked",
+							scope_hl = "MarkviewCheckboxUnchecked",
+						},
+					},
+				},
+			})
 		end,
 	},
 
