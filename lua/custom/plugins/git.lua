@@ -42,4 +42,18 @@ return {
 			},
 		},
 	},
+	{
+		"crnvl96/lazydocker.nvim",
+		dependencies = { "akinsho/toggleterm.nvim" },
+		keys = {
+			{
+				"<leader>gd",
+				function()
+					require("lazydocker").open()
+				end,
+				desc = "Open Lazy[D]ocker",
+			},
+		},
+		opts = {},
+	},
 }
