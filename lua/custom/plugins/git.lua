@@ -7,6 +7,7 @@ return {
 				"<leader>gg",
 				function()
 					local cwd_before = vim.fn.getcwd()
+					local tab_before = vim.api.nvim_get_current_tabpage()
 
 					local buf = vim.api.nvim_create_buf(false, true)
 					vim.cmd("tabnew")
@@ -17,6 +18,10 @@ return {
 						on_exit = function()
 							vim.schedule(function()
 								pcall(vim.cmd, "tabclose")
+								-- Return to the tab we came from (code tab, not agents)
+								if vim.api.nvim_tabpage_is_valid(tab_before) then
+									vim.api.nvim_set_current_tabpage(tab_before)
+								end
 
 								-- Read lazygit state file to get the last used repo
 								local state_file = vim.fn.expand("~/.local/state/lazygit/state.yml")
@@ -28,9 +33,9 @@ return {
 									-- Extract first repo from recentrepos list
 									local new_cwd = content:match("recentrepos:%s*%-%s*([^\n]+)")
 									if new_cwd and new_cwd ~= cwd_before then
+										local reload = require("custom.worktree-reload")
+										reload.reload_buffers(cwd_before, new_cwd)
 										vim.cmd("cd " .. vim.fn.fnameescape(new_cwd))
-										vim.cmd("e .")
-										vim.notify("Switched to: " .. new_cwd, vim.log.levels.INFO)
 									end
 								end
 							end)

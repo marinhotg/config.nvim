@@ -7,23 +7,24 @@ return {
 	config = function()
 		require("git-worktree").setup({
 			change_directory_command = "cd",
-			update_on_change = true,
-			update_on_change_command = "e .",
+			update_on_change = false,
 			autopush = false,
 		})
 
 		require("telescope").load_extension("git_worktree")
 
 		local Worktree = require("git-worktree")
+		local reload = require("custom.worktree-reload")
 
+		-- Notifications + reload for telescope switches
 		Worktree.on_tree_change(function(op, metadata)
 			if op == Worktree.Operations.Switch then
 				vim.notify("Switched to worktree: " .. metadata.path, vim.log.levels.INFO)
-			end
-			if op == Worktree.Operations.Create then
+				-- metadata.prev_path = old worktree, metadata.path = new worktree
+				reload.reload_buffers(metadata.prev_path, metadata.path)
+			elseif op == Worktree.Operations.Create then
 				vim.notify("Created worktree: " .. metadata.path, vim.log.levels.INFO)
-			end
-			if op == Worktree.Operations.Delete then
+			elseif op == Worktree.Operations.Delete then
 				vim.notify("Deleted worktree: " .. metadata.prev_path, vim.log.levels.INFO)
 			end
 		end)
