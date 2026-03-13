@@ -21,4 +21,11 @@ REPO=$(basename $(git rev-parse --show-toplevel))
 WORKTREE_DIR="../${REPO}-wt"
 
 mkdir -p "$WORKTREE_DIR"
-git worktree add "${WORKTREE_DIR}/${WORKTREE_NAME}" "$BRANCH_NAME"
+
+# If branch exists, check it out; otherwise create it with -b
+if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME" || \
+   git show-ref --verify --quiet "refs/remotes/origin/$BRANCH_NAME"; then
+    git worktree add "${WORKTREE_DIR}/${WORKTREE_NAME}" "$BRANCH_NAME"
+else
+    git worktree add -b "$BRANCH_NAME" "${WORKTREE_DIR}/${WORKTREE_NAME}"
+fi
