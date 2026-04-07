@@ -29,3 +29,16 @@ if git show-ref --verify --quiet "refs/heads/$BRANCH_NAME" || \
 else
     git worktree add -b "$BRANCH_NAME" "${WORKTREE_DIR}/${WORKTREE_NAME}"
 fi
+
+# Symlink Claude Code project memory so worktrees share the same memory
+REPO_TOPLEVEL=$(git rev-parse --show-toplevel)
+REPO_ABSPATH=$(cd "$REPO_TOPLEVEL" && pwd)
+WT_ABSPATH=$(cd "${WORKTREE_DIR}/${WORKTREE_NAME}" && pwd)
+
+CLAUDE_PROJECTS="$HOME/.claude/projects"
+REPO_PROJECT_DIR="${CLAUDE_PROJECTS}/$(echo "$REPO_ABSPATH" | tr '/_' '--')"
+WT_PROJECT_DIR="${CLAUDE_PROJECTS}/$(echo "$WT_ABSPATH" | tr '/_' '--')"
+
+if [ -d "$REPO_PROJECT_DIR" ] && [ ! -e "$WT_PROJECT_DIR" ]; then
+    ln -s "$REPO_PROJECT_DIR" "$WT_PROJECT_DIR"
+fi
