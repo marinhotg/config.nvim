@@ -247,7 +247,7 @@ vim.api.nvim_create_autocmd("LspAttach", {
 
 
 -- Set to true if you have a Nerd Font installed and selected in the terminal
-vim.g.have_nerd_font = true
+vim.g.have_nerd_font = false
 
 -- [[ Setting options ]]
 -- See `:help vim.o`
@@ -325,6 +325,17 @@ vim.o.scrolloff = 10
 -- See `:help 'confirm'`
 vim.o.confirm = true
 
+-- Preserve the original end-of-file for XML (e.g. Maven pom.xml). By default Neovim
+-- appends a trailing newline on save when the file has none, which produces a noisy
+-- "No newline at end of file" diff every time you save. Disabling 'fixeol' for XML
+-- keeps the file exactly as it was.
+vim.api.nvim_create_autocmd("FileType", {
+	pattern = "xml",
+	callback = function()
+		vim.bo.fixeol = false
+	end,
+})
+
 -- [[ Basic Keymaps ]]
 --  See `:help vim.keymap.set()`
 
@@ -335,51 +346,21 @@ vim.keymap.set("n", "<Esc>", "<cmd>nohlsearch<CR>")
 -- Diagnostic keymaps
 vim.keymap.set("n", "<leader>q", vim.diagnostic.setloclist, { desc = "Open diagnostic [Q]uickfix list" })
 
-local function diagnostic_enable(bufnr)
-	if vim.diagnostic and vim.diagnostic.enable then
-		vim.diagnostic.enable(bufnr)
-	elseif vim.lsp.diagnostic and vim.lsp.diagnostic.enable then
-		vim.lsp.diagnostic.enable(bufnr)
+local saved_virtual_text
+vim.keymap.set("n", "<leader>te", function()
+	local current = vim.diagnostic.config().virtual_text
+	if current then
+		saved_virtual_text = current
+		vim.diagnostic.config({ virtual_text = false })
+	else
+		vim.diagnostic.config({ virtual_text = saved_virtual_text or true })
 	end
-end
+end, { desc = "[T]oggle inline [E]rrors (virtual_text)" })
 
-local function diagnostic_disable(bufnr)
-	if vim.diagnostic and vim.diagnostic.disable then
-		vim.diagnostic.disable(bufnr)
-	elseif vim.lsp.diagnostic and vim.lsp.diagnostic.disable then
-		vim.lsp.diagnostic.disable(bufnr)
-	end
-end
-
-vim.api.nvim_create_autocmd("FileType", {
-  pattern = "rust",
-  callback = function(args)
-    local show_virtual_text = true
-    vim.keymap.set(
-      "n",
-      "<leader>te",
-      function()
-        show_virtual_text = not show_virtual_text
-        vim.diagnostic.config({ virtual_text = show_virtual_text })
-      end,
-      { buffer = args.buf, desc = "[T]oggle inline [E]rrors (virtual_text)" }
-    )
-    local diagnostics_enabled = true
-    vim.keymap.set(
-      "n",
-      "<leader>td",
-      function()
-        diagnostics_enabled = not diagnostics_enabled
-        if diagnostics_enabled then
-          diagnostic_enable(args.buf)
-        else
-          diagnostic_disable(args.buf)
-        end
-      end,
-      { buffer = args.buf, desc = "[T]oggle [d]iagnostics (buffer)" }
-    )
-  end,
-})
+vim.keymap.set("n", "<leader>td", function()
+	local bufnr = vim.api.nvim_get_current_buf()
+	vim.diagnostic.enable(not vim.diagnostic.is_enabled({ bufnr = bufnr }), { bufnr = bufnr })
+end, { desc = "[T]oggle [d]iagnostics (buffer)" })
 
 -- Sair do modo de inserção com 'jk'
 vim.keymap.set("i", "jk", "<Esc>", { noremap = true, silent = true })
@@ -1099,6 +1080,58 @@ require("lazy").setup({
 						},
 					},
 				},
+				-- Python language server
+				basedpyright = {
+					settings = {
+						basedpyright = {
+							analysis = {
+								autoSearchPaths = true,
+								useLibraryCodeForTypes = true,
+								typeCheckingMode = "standard",
+								-- Repos QI Tech: imports resolvem a partir de src/ e da raiz (tests.*)
+								extraPaths = { "src", "." },
+								-- Codebases legados sem type hints: contradições de tipo viram
+								-- warning (amarelo) em vez de erro (vermelho)
+								diagnosticSeverityOverrides = {
+									reportMissingImports = "warning",
+									reportArgumentType = "warning",
+									reportAttributeAccessIssue = "warning",
+									reportIndexIssue = "warning",
+									reportOptionalSubscript = "warning",
+									reportCallIssue = "warning",
+									reportOptionalMemberAccess = "warning",
+									reportReturnType = "warning",
+									reportGeneralTypeIssues = "warning",
+									reportOperatorIssue = "warning",
+									reportPossiblyUnboundVariable = "warning",
+									reportIncompatibleMethodOverride = "warning",
+									reportRedeclaration = "warning",
+									reportAssignmentType = "warning",
+									reportPrivateImportUsage = "warning",
+								},
+							},
+						},
+					},
+				},
+				-- TypeScript / JavaScript language server
+				ts_ls = {
+					settings = {
+						typescript = {
+							inlayHints = {
+								includeInlayParameterNameHints = "all",
+								includeInlayFunctionParameterTypeHints = true,
+								includeInlayVariableTypeHints = true,
+							},
+						},
+						javascript = {
+							inlayHints = {
+								includeInlayParameterNameHints = "all",
+								includeInlayFunctionParameterTypeHints = true,
+								includeInlayVariableTypeHints = true,
+							},
+						},
+					},
+				},
 			}
 
 			-- Configuração simples do rust-analyzer com cargo check desabilitado
@@ -1165,11 +1198,12 @@ require("lazy").setup({
 			formatters_by_ft = {
 				lua = { "stylua" },
 				json = { "jq" },
+				javascript = { "prettierd", "prettier", stop_after_first = true },
+				javascriptreact = { "prettierd", "prettier", stop_after_first = true },
+				typescript = { "prettierd", "prettier", stop_after_first = true },
+				typescriptreact = { "prettierd", "prettier", stop_after_first = true },
 				-- Conform can also run multiple formatters sequentially
 				-- python = { "isort", "black" },
-				--
-				-- You can use 'stop_after_first' to run the first available formatter from the list
-				-- javascript = { "prettierd", "prettier", stop_after_first = true },
 			},
 		},
 	},
@@ -1281,6 +1315,11 @@ require("lazy").setup({
 		"folke/tokyonight.nvim",
 		priority = 1000, -- Make sure to load this before all the other start plugins.
 		config = function()
+			-- Os overrides obsidian valem só para estilos escuros; tokyonight-day fica com a paleta nativa.
+			local function is_light(bg)
+				return tonumber(bg:sub(2, 3), 16) > 0x80
+			end
+
 			local obsidian = {
 				bg = "#1e1e1e",
 				bg_dark = "#171717",
@@ -1313,6 +1352,9 @@ require("lazy").setup({
 					comments = { italic = false }, -- Disable italics in comments
 				},
 				on_colors = function(colors)
+					if is_light(colors.bg) then
+						return
+					end
 					colors.bg = obsidian.bg
 					colors.bg_dark = obsidian.bg_dark
 					colors.bg_highlight = obsidian.bg_highlight
@@ -1333,6 +1375,9 @@ require("lazy").setup({
 					colors.purple = obsidian.purple
 				end,
 				on_highlights = function(hl, c)
+					if is_light(c.bg) then
+						return
+					end
 					hl.CursorLine = { bg = obsidian.bg_highlight }
 					hl.Visual = { bg = obsidian.selection }
 					hl.Search = { bg = obsidian.search, fg = obsidian.bg }
@@ -1354,7 +1399,23 @@ require("lazy").setup({
 			-- Like many other themes, this one has different styles, and you could load
 			-- any other, such as 'tokyonight-storm', 'tokyonight-moon', or 'tokyonight-day'.
 			vim.cmd.colorscheme("tokyonight")
+
+			vim.keymap.set("n", "<leader>tl", function()
+				if vim.o.background == "light" then
+					vim.cmd.colorscheme("tokyonight-night")
+				else
+					-- gruvbox segue vim.o.background; sem isso carregaria a variante escura
+					vim.o.background = "light"
+					vim.cmd.colorscheme("gruvbox")
+				end
+			end, { desc = "[T]oggle [L]ight/dark theme" })
 		end,
+	},
+
+	{ -- Tema claro do toggle <leader>tl (gruvbox light)
+		"ellisonleao/gruvbox.nvim",
+		priority = 1000,
+		opts = {},
 	},
 
 	-- Highlight todo, notes, etc in comments
@@ -1404,6 +1465,7 @@ require("lazy").setup({
 	},
 	{ -- Highlight, edit, and navigate code
 		"nvim-treesitter/nvim-treesitter",
+		branch = "master",
 		build = ":TSUpdate",
 		main = "nvim-treesitter.configs", -- Sets main module to use for opts
 		-- [[ Configure Treesitter ]] See `:help nvim-treesitter`
@@ -1413,11 +1475,15 @@ require("lazy").setup({
 				"c",
 				"diff",
 				"html",
+				"javascript",
+				"jsdoc",
 				"lua",
 				"luadoc",
 				"markdown",
 				"markdown_inline",
 				"query",
+				"tsx",
+				"typescript",
 				"vim",
 				"vimdoc",
 			},

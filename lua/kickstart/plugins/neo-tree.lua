@@ -102,6 +102,19 @@ return {
 
       event_handlers = {},
 
+      commands = {
+        copy_path_to_clipboard = function(state)
+          local node = state.tree:get_node()
+          if not node then
+            return
+          end
+          local path = node:get_id()
+          vim.fn.setreg('+', path)
+          vim.fn.setreg('"', path)
+          vim.notify('Copied path: ' .. path, vim.log.levels.INFO)
+        end,
+      },
+
       window = {
         position = 'right',
         mappings = {
@@ -133,6 +146,7 @@ return {
           ['D'] = 'fuzzy_finder_directory',
           ['f'] = 'filter_on_submit',
           ['<c-x>'] = 'clear_filter',
+          ['<c-o>'] = 'copy_path_to_clipboard',
         },
       },
     }
