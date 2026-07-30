@@ -117,7 +117,7 @@ vim.api.nvim_create_user_command("DisableCargoCheck", function()
 		print("Nenhum cliente rust-analyzer ativo encontrado")
 		return
 	end
-	
+
 	for _, client in ipairs(clients) do
 		pcall(function()
 			-- Múltiplas tentativas de desativação
@@ -129,7 +129,7 @@ vim.api.nvim_create_user_command("DisableCargoCheck", function()
 					},
 				},
 			})
-			
+
 			-- Força a desativação via comando LSP
 			client.request("workspace/executeCommand", {
 				command = "rust-analyzer.reload",
@@ -147,7 +147,7 @@ vim.api.nvim_create_user_command("StopRustAnalyzer", function()
 		print("Nenhum cliente rust-analyzer ativo encontrado")
 		return
 	end
-	
+
 	for _, client in ipairs(clients) do
 		vim.lsp.stop_client(client.id)
 	end
@@ -163,7 +163,7 @@ vim.api.nvim_create_user_command("RestartRustAnalyzer", function()
 		end
 		print("Rust-analyzer parado, reiniciando...")
 	end
-	
+
 	-- Aguarda um pouco e reinicia
 	vim.defer_fn(function()
 		vim.lsp.config.rust_analyzer = {
@@ -185,13 +185,13 @@ end, { desc = "Reinicia o rust-analyzer com configuração limpa" })
 vim.api.nvim_create_user_command("CreateRustAnalyzerConfig", function()
 	local cwd = vim.fn.getcwd()
 	local config_file = cwd .. "/rust-analyzer.toml"
-	
+
 	-- Verifica se já existe
 	if vim.fn.filereadable(config_file) == 1 then
 		print("Arquivo rust-analyzer.toml já existe em: " .. config_file)
 		return
 	end
-	
+
 	-- Cria o arquivo de configuração
 	local config_content = [[[checkOnSave]
 enable = false
@@ -199,7 +199,7 @@ enable = false
 [cargo]
 checkOnSave = false
 ]]
-	
+
 	vim.fn.writefile(vim.split(config_content, "\n"), config_file)
 	print("✅ Arquivo rust-analyzer.toml criado em: " .. config_file)
 	print("🛡️ Cargo check desabilitado para este projeto")
@@ -212,7 +212,7 @@ vim.api.nvim_create_user_command("CargoCheckStatus", function()
 		print("Nenhum cliente rust-analyzer ativo encontrado")
 		return
 	end
-	
+
 	for i, client in ipairs(clients) do
 		local config = client.config.settings["rust-analyzer"]
 		if config and config.checkOnSave then
@@ -244,7 +244,6 @@ vim.api.nvim_create_autocmd("LspAttach", {
 		end
 	end,
 })
-
 
 -- Set to true if you have a Nerd Font installed and selected in the terminal
 vim.g.have_nerd_font = false
@@ -430,14 +429,7 @@ local rust_unresolved_reference_hl_groups = {
 local rust_unresolved_reference_hl_backup = {}
 
 local function hl_has_underline(hl)
-	return hl
-		and (
-			hl.underline
-			or hl.undercurl
-			or hl.underdouble
-			or hl.underdotted
-			or hl.underdashed
-		)
+	return hl and (hl.underline or hl.undercurl or hl.underdouble or hl.underdotted or hl.underdashed)
 end
 
 local function update_rust_unresolved_reference_hl_backup()
@@ -522,9 +514,7 @@ vim.api.nvim_create_autocmd("LspTokenUpdate", {
 vim.g.which_key_popup_enabled = false
 
 vim.keymap.set("n", "<leader>tu", function()
-	set_rust_unresolved_reference_semantic_tokens_enabled(
-		not vim.g.rust_unresolved_reference_semantic_tokens_enabled
-	)
+	set_rust_unresolved_reference_semantic_tokens_enabled(not vim.g.rust_unresolved_reference_semantic_tokens_enabled)
 	local status = vim.g.rust_unresolved_reference_semantic_tokens_enabled and "ENABLED" or "DISABLED"
 	vim.notify("Rust unresolvedReference semantic tokens: " .. status, vim.log.levels.INFO)
 end, { desc = "[T]oggle [U]nresolved reference (semantic tokens)" })
@@ -612,7 +602,7 @@ require("lazy").setup({
 		lazy = false,
 		dependencies = {
 			"nvim-treesitter/nvim-treesitter",
-			"nvim-tree/nvim-web-devicons"
+			"nvim-tree/nvim-web-devicons",
 		},
 		config = function()
 			vim.api.nvim_set_hl(0, "MarkviewHeading1", { fg = "#f38ba8", bold = true, bg = "NONE" })
@@ -887,15 +877,15 @@ require("lazy").setup({
 				defaults = {
 					mappings = {
 						i = {
-							['<c-enter>'] = 'to_fuzzy_refine',
-							['<c-r>'] = function()
-								return vim.fn.getreg('+')
+							["<c-enter>"] = "to_fuzzy_refine",
+							["<c-r>"] = function()
+								return vim.fn.getreg("+")
 							end,
 						},
 						n = {
-							['p'] = function(prompt_bufnr)
-								local picker = require('telescope.actions.state').get_current_picker(prompt_bufnr)
-								local register_content = vim.fn.getreg('+'):gsub('\n', ' ')
+							["p"] = function(prompt_bufnr)
+								local picker = require("telescope.actions.state").get_current_picker(prompt_bufnr)
+								local register_content = vim.fn.getreg("+"):gsub("\n", " ")
 								picker:set_prompt(picker:_get_prompt() .. register_content)
 							end,
 						},
@@ -992,7 +982,7 @@ require("lazy").setup({
 					map("grn", function()
 						vim.ui.input({
 							prompt = "New name: ",
-							default = vim.fn.expand("<cword>")
+							default = vim.fn.expand("<cword>"),
 						}, function(new_name)
 							if new_name then
 								vim.lsp.buf.rename(new_name)
@@ -1032,13 +1022,13 @@ require("lazy").setup({
 						})
 					end
 
-                    if client and client.server_capabilities.inlayHintProvider and vim.lsp.inlay_hint then
-                        vim.lsp.inlay_hint.enable(false, { bufnr = event.buf })
-                        map("<leader>th", function()
-                            local enabled = vim.lsp.inlay_hint.is_enabled({ bufnr = event.buf })
-                            vim.lsp.inlay_hint.enable(not enabled, { bufnr = event.buf })
-                        end, "[T]oggle Inlay [H]ints")
-                    end
+					if client and client.server_capabilities.inlayHintProvider and vim.lsp.inlay_hint then
+						vim.lsp.inlay_hint.enable(false, { bufnr = event.buf })
+						map("<leader>th", function()
+							local enabled = vim.lsp.inlay_hint.is_enabled({ bufnr = event.buf })
+							vim.lsp.inlay_hint.enable(not enabled, { bufnr = event.buf })
+						end, "[T]oggle Inlay [H]ints")
+					end
 				end,
 			})
 
@@ -1518,7 +1508,7 @@ require("lazy").setup({
 	-- require 'kickstart.plugins.debug',
 	-- require 'kickstart.plugins.indent_line',
 	-- require 'kickstart.plugins.lint',
-	-- require 'kickstart.plugins.autopairs',
+	require("kickstart.plugins.autopairs"),
 	require("kickstart.plugins.neo-tree"),
 	require("kickstart.plugins.gitsigns"), -- adds gitsigns recommend keymaps
 
