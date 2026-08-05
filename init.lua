@@ -361,6 +361,10 @@ vim.keymap.set("n", "<leader>td", function()
 	vim.diagnostic.enable(not vim.diagnostic.is_enabled({ bufnr = bufnr }), { bufnr = bufnr })
 end, { desc = "[T]oggle [d]iagnostics (buffer)" })
 
+-- Back to the netrw listing for the current file's directory (vinegar style).
+-- Inside netrw, '-' stays netrw's own buffer-local "go up one directory".
+vim.keymap.set("n", "-", "<cmd>Explore<CR>", { desc = "Open netrw in the current file's directory", silent = true })
+
 -- Sair do modo de inserção com 'jk'
 vim.keymap.set("i", "jk", "<Esc>", { noremap = true, silent = true })
 
@@ -1163,14 +1167,20 @@ require("lazy").setup({
 			{
 				"<leader>f",
 				function()
-					require("conform").format({ async = true, lsp_format = "fallback" })
+					-- `quiet` suppresses conform's generic "Formatter failed" toast so the
+					-- callback below can surface the formatter's actual stderr instead.
+					require("conform").format({ async = true, lsp_format = "fallback", quiet = true }, function(err)
+						if err then
+							vim.notify(err, vim.log.levels.ERROR)
+						end
+					end)
 				end,
 				mode = "",
 				desc = "[F]ormat buffer",
 			},
 		},
 		opts = {
-			notify_on_error = false,
+			notify_on_error = true,
 			format_on_save = function(bufnr)
 				-- Disable "format_on_save lsp_fallback" for languages that don't
 				-- have a well standardized coding style. You can add additional

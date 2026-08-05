@@ -34,6 +34,10 @@ return {
 			map({ "n", "t" }, "<leader>t2", function()
 				term2:toggle()
 			end, { desc = "Toggle Terminal 2" })
+
+			-- Terminal em split, a partir de qualquer buffer (equivalente a :vsp | terminal)
+			map({ "n", "t" }, "<leader>tv", "<cmd>vsplit | terminal<CR>", { desc = "Terminal em split [V]ertical" })
+			map({ "n", "t" }, "<leader>ts", "<cmd>split | terminal<CR>", { desc = "Terminal em [S]plit horizontal" })
 		end,
 	},
 }
